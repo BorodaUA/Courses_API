@@ -1,5 +1,5 @@
 from api.models.courses import CourseModel
-from api.schemas.courses import CourseSchema
+from api.schemas.courses import CourseSchema, IdSchema
 from flask import g, jsonify, make_response, request
 from flask_restx import Namespace, Resource, fields
 from marshmallow import ValidationError
@@ -10,6 +10,8 @@ add_course_schema = CourseSchema(exclude=['id'])
 list_courses_schema = CourseSchema(
     many=True,
 )
+id_schema = IdSchema()
+get_course_schema = CourseSchema()
 
 valid_request_model = api.model(
     'Course',
@@ -37,6 +39,19 @@ duplicate_msg = api.model(
             default="Course with this name already exist"
         )
     }
+)
+valid_response_model = api.model(
+    'Course response model',
+    {
+        'id': fields.Integer(default=1),
+        'name': fields.String(
+            default=f"Example of the course name {time()}"
+        ),
+        'lectures_count': fields.Integer(default=11),
+        'start_date': fields.Date(default='2021-05-17'),
+        'end_date': fields.Date(default='2021-07-30')
+    },
+    description='Course object that will retrived from the database',
 )
 
 
@@ -87,3 +102,35 @@ class Courses(Resource):
             ),
             201,
         )
+
+
+@api.route('/courses/<int:id>')
+@api.param(name='id', description='A course unique id', default=1)
+class Course(Resource):
+    @api.response(200, "Success", model=valid_response_model)
+    def get(self, id):
+        '''
+        Getting GET requests on the /courses/<id> endpoint and
+        return a course by id
+        '''
+        try:
+            id = {"id": id}
+            id = id_schema.load(id)
+        except ValidationError as err:
+            return err.messages, 400
+        db_session = g.session
+        course = db_session.query(CourseModel).filter_by(
+            id=id['id']
+        ).first()
+        if not course:
+            return make_response(
+                jsonify(
+                    {
+                        "message": "Course not found",
+                        "code": 404
+                    }
+                    ),
+                404,
+            )
+        course = get_course_schema.dump(course)
+        return jsonify(course)

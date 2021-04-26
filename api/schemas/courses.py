@@ -25,3 +25,13 @@ class CourseSchema(Schema):
         required=True,
         format='%Y-%m-%d'
     )
+
+
+class IdSchema(Schema):
+    id = fields.Int(
+        required=True,
+        validate=validate.Range(
+            min=1,
+            error="Value must be greater than 0"
+        )
+    )
