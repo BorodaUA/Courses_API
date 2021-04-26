@@ -3,7 +3,25 @@ from marshmallow import Schema, fields, validate
 
 class CourseSchema(Schema):
     id = fields.Int()
-    name = fields.Str()
-    lectures_count = fields.Int()
-    start_date = fields.Date('%m-%d-%Y')
-    end_date = fields.Date('%m-%d-%Y')
+    name = fields.Str(
+        required=True,
+        validate=validate.Length(
+            min=2,
+            error='Course name must be at least 2 symbols long.'
+        )
+    )
+    lectures_count = fields.Int(
+        required=True,
+        validate=validate.Range(
+            min=1,
+            error="Value must be greater than 0"
+        )
+    )
+    start_date = fields.Date(
+        required=True,
+        format='%Y-%m-%d'
+    )
+    end_date = fields.Date(
+        required=True,
+        format='%Y-%m-%d'
+    )
