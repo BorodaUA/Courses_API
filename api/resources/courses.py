@@ -7,6 +7,9 @@ from time import time
 
 api = Namespace(name="", description="Courses API")
 add_course_schema = CourseSchema(exclude=['id'])
+list_courses_schema = CourseSchema(
+    many=True,
+)
 
 valid_request_model = api.model(
     'Course',
@@ -41,10 +44,13 @@ duplicate_msg = api.model(
 class Courses(Resource):
     def get(self):
         '''
-        Return message Hello World,
-        to the GET request, on the /courses endpoint
+        Getting GET requests on the '/courses' endpoint, and
+        returning list of the courses from the database
         '''
-        return {'message': 'Hello World'}, 200
+        db_session = g.session
+        courses = db_session.query(CourseModel).all()
+        courses = list_courses_schema.dump(courses)
+        return jsonify(courses)
 
     @api.expect(valid_request_model)
     @api.response(201, "Success", model=success_msg)
