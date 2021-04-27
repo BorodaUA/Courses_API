@@ -53,6 +53,13 @@ valid_response_model = api.model(
     },
     description='Course object that will retrived from the database',
 )
+put_200_response_model = api.model(
+    'PUT 200 response model',
+    {
+        "code": fields.Integer(default=200),
+        "message": fields.String("Course updated")
+    }
+)
 
 
 @api.route('/courses')
@@ -134,3 +141,103 @@ class Course(Resource):
             )
         course = get_course_schema.dump(course)
         return jsonify(course)
+
+    @api.expect(valid_request_model)
+    @api.response(200, "Success", model=put_200_response_model)
+    @api.response(201, "Success", model=success_msg)
+    def put(self, id):
+        '''
+        Getting PUT requests on the /courses/<id> endpoint and
+        updating information about a course, if it exists, or
+        creating new record if it is not.
+        '''
+        try:
+            id = {"id": id}
+            id = id_schema.load(id)
+        except ValidationError as err:
+            return err.messages, 400
+        try:
+            course = add_course_schema.load(request.get_json())
+        except ValidationError as err:
+            return err.messages, 400
+        db_session = g.session
+        course_exist_by_id = db_session.query(CourseModel).filter(
+            CourseModel.id == id['id']
+        ).first()
+        course_exist_by_name = db_session.query(CourseModel).filter(
+            CourseModel.name == course["name"]
+        ).first()
+        # check if course exist by id
+        if course_exist_by_id:
+            # check if course exist by name
+            if course_exist_by_name:
+                # check if id and name belongs to the same course
+                if course_exist_by_name.id != id["id"]:
+                    return make_response(jsonify(
+                        {
+                            "message": (
+                                "Bad request, course id and name mismatch"),
+                            "code": 400
+                        }
+                    ), 400,)
+                # updating course
+                else:
+                    db_session.query(CourseModel).filter(
+                        CourseModel.id == id['id']
+                    ).update(
+                        {
+                            "name": course["name"],
+                            "lectures_count": course["lectures_count"],
+                            "start_date": course["start_date"],
+                            "end_date": course["end_date"]
+                        }
+                    )
+                    db_session.commit()
+                    return make_response(jsonify(
+                        {
+                            "message": "Course updated",
+                            "code": 200
+                        }
+                    ), 200,)
+            # updating course fields
+            else:
+                db_session.query(CourseModel).filter(
+                    CourseModel.id == id['id']
+                ).update(
+                    {
+                        "name": course["name"],
+                        "lectures_count": course["lectures_count"],
+                        "start_date": course["start_date"],
+                        "end_date": course["end_date"]
+                    }
+                )
+                db_session.commit()
+                return make_response(jsonify(
+                    {
+                        "message": "Course updated",
+                        "code": 200
+                    }
+                ), 200,)
+        if not course_exist_by_id:
+            # check if course name already exists
+            if course_exist_by_name:
+                return make_response(
+                    jsonify(
+                        {
+                            "message": "Course with this name already exist"
+                        }
+                    ), 400
+                )
+            # adding course if it is new
+            else:
+                db_session.add(CourseModel(**course))
+                db_session.commit()
+                return make_response(
+                    jsonify(
+                        {
+                            "message": "Course added",
+                            "code": 201
+                        }
+                    ),
+                    201,
+                )
