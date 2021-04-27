@@ -60,6 +60,20 @@ put_200_response_model = api.model(
         "message": fields.String("Course updated")
     }
 )
+delete_200_response_model = api.model(
+    'DELETE 200 response model',
+    {
+        "code": fields.Integer(default=200),
+        "message": fields.String("Course deleted")
+    }
+)
+delete_404_response_model = api.model(
+    'DELETE 200 response model',
+    {
+        "code": fields.Integer(default=404),
+        "message": fields.String("Course not found")
+    }
+)
 
 
 @api.route('/courses')
@@ -241,3 +255,34 @@ class Course(Resource):
                     ),
                     201,
                 )
+
+    @api.response(200, "Success", model=delete_200_response_model)
+    @api.response(404, "Not Found", model=delete_404_response_model)
+    def delete(self, id):
+        '''
+        Getting DELETE requests on the /courses/<id> endpoint and
+        deleting a course from the database
+        '''
+        try:
+            id = {"id": id}
+            id = id_schema.load(id)
+        except ValidationError as err:
+            return err.messages, 400
+        db_session = g.session
+        course_exist_by_id = db_session.query(CourseModel).filter(
+            CourseModel.id == id['id']
+        ).first()
+        if not course_exist_by_id:
+            return make_response(
+                jsonify({"message": "Course not found", "code": 404}), 404
+            )
+        db_session.query(CourseModel).filter(
+            CourseModel.id == id['id']
+        ).delete()
+        db_session.commit()
+        return make_response(jsonify(
+            {
+                "message": "Course deleted",
+                "code": 200
+            }
+        ), 200,)
