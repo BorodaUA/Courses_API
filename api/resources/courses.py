@@ -1,9 +1,10 @@
 from api.models.courses import CourseModel
-from api.schemas.courses import CourseSchema, IdSchema
+from api.schemas.courses import CourseSchema, IdSchema, CourseFilterSchema
 from flask import g, jsonify, make_response, request
 from flask_restx import Namespace, Resource, fields
 from marshmallow import ValidationError
 from time import time
+import logging
 
 api = Namespace(name="", description="Courses API")
 add_course_schema = CourseSchema(exclude=['id'])
@@ -12,6 +13,15 @@ list_courses_schema = CourseSchema(
 )
 id_schema = IdSchema()
 get_course_schema = CourseSchema()
+course_filters_name_schema = CourseFilterSchema(
+    exclude=['start_date', 'end_date']
+)
+course_filters_start_date_schema = CourseFilterSchema(
+    exclude=['name', 'end_date']
+)
+course_filters_end_date_schema = CourseFilterSchema(
+    exclude=['name', 'start_date']
+)
 
 valid_request_model = api.model(
     'Course',
@@ -78,15 +88,102 @@ delete_404_response_model = api.model(
 
 @api.route('/courses')
 class Courses(Resource):
+    @api.param(
+        name='end_date',
+        description='A course end_date',
+        default='2021-07-30'
+    )
+    @api.param(
+        name='start_date',
+        description='A course start_date',
+        default='2021-05-17'
+    )
+    @api.param(
+        name='name',
+        description='A course unique name',
+        default='Example'
+    )
     def get(self):
         '''
         Getting GET requests on the '/courses' endpoint, and
-        returning list of the courses from the database
+        returning list of the courses from the database if no parameters
+        provided or filtering by course name, start_date, end_date
         '''
+        incoming_name = {
+            'name': request.args.get(
+                'name',
+                default=None,
+                type=None
+            )
+        }
+        incoming_start_date = {
+            'start_date': request.args.get(
+                'start_date',
+                default=None,
+                type=None
+            )
+        }
+        incoming_end_date = {
+            'end_date': request.args.get(
+                'end_date',
+                default=None,
+                type=None
+            )
+        }
+        # validating name
+        try:
+            incoming_name = course_filters_name_schema.load(
+                incoming_name
+            )
+        except ValidationError as err:
+            logging.debug(err)
+            incoming_name = {'name': None}
+        # validating start_date
+        try:
+            incoming_start_date = course_filters_start_date_schema.load(
+                incoming_start_date
+            )
+        except ValidationError as err:
+            logging.debug(err)
+            incoming_start_date = {'start_date': None}
+        # validating end_date
+        try:
+            incoming_end_date = course_filters_end_date_schema.load(
+                incoming_end_date
+            )
+        except ValidationError as err:
+            logging.debug(err)
+            incoming_end_date = {'end_date': None}
+        # get session
         db_session = g.session
-        courses = db_session.query(CourseModel).all()
-        courses = list_courses_schema.dump(courses)
-        return jsonify(courses)
+        # if no query params, return all courses
+        if (incoming_name['name'] is None and
+                incoming_start_date['start_date'] is None and
+                incoming_end_date['end_date'] is None):
+            courses = db_session.query(CourseModel).all()
+            courses = list_courses_schema.dump(courses)
+            return jsonify(courses)
+        # courses found by name
+        courses_found_by_name = db_session.query(CourseModel).filter(
+            CourseModel.name.like(f'%{incoming_name["name"]}%')
+        )
+        # courses found by start_date
+        courses_found_by_start_date = db_session.query(CourseModel).filter(
+            CourseModel.start_date == incoming_start_date["start_date"],
+        )
+        # courses found by end_date
+        courses_found_by_end_date = db_session.query(CourseModel).filter(
+            CourseModel.end_date == incoming_end_date["end_date"],
+        )
+        # combining the results
+        combined_results = courses_found_by_name.union(
+            courses_found_by_start_date,
+            courses_found_by_end_date
+        )
+        combined_results = list_courses_schema.dump(
+            combined_results
+        )
+        return jsonify(combined_results)
 
     @api.expect(valid_request_model)
     @api.response(201, "Success", model=success_msg)

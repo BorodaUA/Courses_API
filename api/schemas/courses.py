@@ -35,3 +35,21 @@ class IdSchema(Schema):
             error="Value must be greater than 0"
         )
     )
+
+
+class CourseFilterSchema(Schema):
+    name = fields.Str(
+        required=True,
+        validate=validate.Length(
+            min=1,
+            error='Course name must be at least 1 symbols long.'
+        )
+    )
+    start_date = fields.Date(
+        required=True,
+        format='%Y-%m-%d'
+    )
+    end_date = fields.Date(
+        required=True,
+        format='%Y-%m-%d'
+    )
