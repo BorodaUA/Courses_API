@@ -1,3 +1,5 @@
 .vscode
 .env
 courses.db
+.pytest_cache
+test_courses.db
