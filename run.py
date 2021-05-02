@@ -1,4 +1,4 @@
-from course_crud import create_app
+from courses_crud import create_app
 
 app = create_app("development")
 

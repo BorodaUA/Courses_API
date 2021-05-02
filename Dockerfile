@@ -8,7 +8,17 @@ ENV PYTHONUNBUFFERED 1
 #
 RUN apk update
 RUN apk add --no-cache \
-git
+git \
+postgresql-dev \
+gcc \
+python3-dev \
+musl-dev \
+libressl-dev \
+libffi-dev \
+zeromq-dev \
+make \
+libevent-dev \
+build-base
 COPY . /usr/src/app/
 # 
 RUN pip install --upgrade pip
